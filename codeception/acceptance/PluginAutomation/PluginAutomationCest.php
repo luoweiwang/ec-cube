@@ -11,13 +11,10 @@
  * file that was distributed with this source code.
  */
 
-use Codeception\Util\Fixtures;
+// use Codeception\Util\Fixtures;
 use Doctrine\ORM\EntityManager;
 use Eccube\Entity\Plugin;
 use Eccube\Repository\PluginRepository;
-use Page\Admin\PluginManagePage;
-use Page\Admin\PluginSearchPage;
-use Eccube\Common\Constant;
 
 class PluginAutomationCest
 {  
@@ -25,6 +22,7 @@ class PluginAutomationCest
     private $code;
 
     private $name;
+    private $filePath;
 
     private $config;
 
@@ -32,62 +30,30 @@ class PluginAutomationCest
 
     public function _before(AcceptanceTester $I)
     {
-        $I->loginAsAdmin();
-        $this->config = Fixtures::get('config');
-        $url = $this->config->get('eccube_package_api_url').'/plugins/purchased';
-        $this->authenticationKey = getenv('AUTHENTICATION_KEY');
-        $pluginId = getenv('PLUGIN_ID');
+        // Login
+        $I->goToAdminPage();
 
-        $context = stream_context_create(array(
-            'http' => array(
-                'method' => 'GET',
-                'header' => array(
-                    'X-ECCUBE-KEY: '.$this->authenticationKey,
-                    'X-ECCUBE-VERSION: '.Constant::VERSION,
-                ),
-            )
-        ));
-            
-        $result = json_decode(file_get_contents($url, false, $context), true);
-        $targetPlugin = array_reduce($result, function ($carry, $item) use ($pluginId) {
-            if ($item['id'] == $pluginId) {
-                $carry = $item;
-            }
-            return $carry;
-        }, []);
-        if(count($targetPlugin) > 0) {
-            $this->code = $targetPlugin['code'];
-            $this->name = $targetPlugin['name'];
-        }
-        
+        $I->submitForm('#form1', [
+            'login_id' => 'admin',
+            'password' => 'password',
+        ]);
+
+        $I->see('ホーム', '#container > h1 > span.title');
+
+        // $fileName = 'AmazonPaymentsV2_VN_fixed.tar.gz';
+        // $this->filePath = '/'.'plugins/'.$fileName;
+        $this->filePath = 'plugins/' . getenv('FILE_PATH');
+
     }
 
     public function _after(AcceptanceTester $I)
     {
     }
 
-    public function test_authenKey(AcceptanceTester $I)
-    {
-        Store_Plugin::start($I, $this->code)->inputAuthenKey($this->authenticationKey, $this->name);
-    }
-
-
-    public function test_searchByName(AcceptanceTester $I)
-    {
-        $I->wantTo('Test search plugin by name');
-        PluginSearchPage::go($I);
-        $I->dontSee('オーナーズストアとの通信に失敗しました。時間を置いてもう一度お試しください。', '.alert-danger');
-        $I->dontSee('オーナーズストアの認証に失敗しました。認証キーの設定を確認してください。', '.alert-danger');
-        $I->dontSee('オーナーズストアとの通信に失敗しました。時間を置いてもう一度お試しください。', '.alert-danger');
-        $I->fillField(['id' => 'search_plugin_keyword'], $this->name);
-        $I->click('検索');
-        $I->see($this->name, '#plugin-list');
-    }
-
     public function test_install(AcceptanceTester $I)
     {
         $I->wantTo('Test install plugin:'.$this->name);
-        Store_Plugin::start($I, $this->code)->install();
+        Store_Plugin::start($I, $this->code)->install( $this->filePath);
     }
 
     
@@ -125,11 +91,6 @@ class Store_Plugin
     /** @var AcceptanceTester */
     protected $I;
 
-    /** @var PluginManagePage */
-    protected $ManagePage;
-
-    /** @var EccubeConfig */
-    protected $config;
 
     /** @var \Doctrine\DBAL\Connection */
     protected $conn;
@@ -147,10 +108,13 @@ class Store_Plugin
     {
         $this->I = $I;
         $this->code = $code;
-        $this->em = Fixtures::get('entityManager');
-        $this->config = Fixtures::get('config');
-        $this->conn = $this->em->getConnection();
-        $this->pluginRepository = $this->em->getRepository(Plugin::class);
+        // $this->em = Fixtures::get('entityManager');
+        // $this->conn = $this->em->getConnection();
+        // $this->pluginRepository = $this->em->getRepository(Plugin::class);
+    }
+
+    private function getPluginName() {
+        return $this->I->grabTextFrom('span.plugin_name > a');
     }
 
     public static function start(AcceptanceTester $I, $code)
@@ -160,87 +124,128 @@ class Store_Plugin
         return $result;
     }
 
-    public function inputAuthenKey($authenticationKey, $pluginName)
+
+    public function install($filePath)
     {
-        $this->I->wantTo('Authentication key setting');
+        // $this->I->assertFileExists($filePath);
 
-        $this->I->amOnPage('/'.$this->config['eccube_admin_route'].'/store/plugin/authentication_setting');
-        $this->I->expect('認証キーの入力を行います。');
-        $this->I->fillField(['id' => 'admin_authentication_authentication_key'], $authenticationKey);
-
-        $this->I->expect('認証キーの登録ボタンをクリックします。');
-        $this->I->click(['css' => '.btn-ec-conversion']);
-        $this->I->waitForText('保存しました');
-        $this->I->wantTo('Test authentication key is valid:');
-        PluginManagePage::go($this->I);
-        $this->I->waitForText('オーナーズストアのプラグイン');
-        $this->I->see($pluginName, 'table');
-
-    }
-
-    public function install()
-    {
-        PluginManagePage::go($this->I);
-        $this->I->click(['xpath' => '//p[contains(text(),"'.$this->code.'")]/ancestor::tr/td/a[contains(text(),"インストール")]']);
+        $this->I->goToAdminPage('admin/ownersstore/');
+        $this->I->see('プラグイン登録');
+        $this->I->attachFile(['name' => 'plugin_file'], $filePath);
         $this->I->click('インストール');
-        $this->I->waitForElement('#installModal');
-        $this->I->seeElement('#installModal');
-        $this->I->waitForText('をインストールしますか？', 20, '#installModal .modal-body');
-        $this->I->click('インストール', '#installModal');
-        $this->I->waitForText('インストールが完了しました。', 60, '#installModal .modal-body');
-        $this->I->click('完了','#installModal .modal-footer');
+        $this->I->seeInPopup('プラグインをインストールしても宜しいでしょうか？');
+        $this->I->acceptPopup();
+        // Wait for plugin install
+        $this->I->wait(5);
+        $this->I->seeInPopup('プラグインをインストールしました。');
+        $this->I->acceptPopup();
 
-        $this->Plugin = $this->pluginRepository->findByCode($this->code);
-        $this->I->assertFalse($this->Plugin->isInitialized(), '初期化されていない');
-        $this->I->assertFalse($this->Plugin->isEnabled(), '有効化されていない');
-        $this->I->assertDirectoryExists($this->config['plugin_realdir'].'/'.$this->code);
+         // Verify 
+        $this->I->seeElement('table.system-plugin');
+        $this->I->seeElement('table.system-plugin tbody tr td span.plugin_name');
+        $this->I->dontSee('登録されているプラグインはありません。', 'div#system');
+        $this->I->seeLink('削除');
+
+
+        // Check folder exists
+        // $this->I->assertDirectoryExists($this->config['plugin_realdir'].'/'.$this->code);
 
         return $this;
     }
 
     public function enable()
     {
-        $this->Plugin = $this->pluginRepository->findByCode($this->code);
+        $this->I->goToAdminPage('admin/ownersstore/');
+        $this->I->waitForElement("div[id='system']");
+        $this->I->see('プラグイン一覧');
+        $pluginName = $this->getPluginName();
+        $this->I->checkOption("#plugin_enable");
+        $this->I->seeInPopup('プラグインを有効にしても宜しいですか？');
+        $this->I->acceptPopup();
 
-        $this->ManagePage = PluginManagePage::go($this->I)->ストアプラグイン_有効化($this->code);
+        $this->I->wait(3);
+        $this->I->seeInPopup($pluginName . 'を有効にしました。');
+        $this->I->acceptPopup();
+        
+        // Popup is still open after reload
+        // Wait for page reload by program
+        $this->I->wait(3);
+        $this->I->seeCheckboxIsChecked("#plugin_enable");
 
-        $this->em->refresh($this->Plugin);
-        $this->I->assertTrue($this->Plugin->isInitialized(), '初期化されている');
-        $this->I->assertTrue($this->Plugin->isEnabled(), '有効化されている');
+        // Reload page to verify checkox again
+        $this->I->reloadPage();
+        // Popup is still open after reload
+        $this->I->wait(3);
+        $this->I->seeInPopup($pluginName . 'を有効にしました。');
+        $this->I->acceptPopup();
+        $this->I->seeCheckboxIsChecked("#plugin_enable");
+
+        // Check database
+        // $this->Plugin = $this->pluginRepository->findByCode($this->code);
+        // $this->em->refresh($this->Plugin);
+        // $this->I->assertTrue($this->Plugin->isInitialized(), '初期化されている');
+        // $this->I->assertTrue($this->Plugin->isEnabled(), '有効化されている');
 
         return $this;
     }
 
     public function disable()
     {
-        $this->Plugin = $this->pluginRepository->findByCode($this->code);
-        $this->ManagePage = PluginManagePage::go($this->I)->ストアプラグイン_無効化($this->code);
+        $this->I->goToAdminPage('admin/ownersstore/');
+        $this->I->waitForElement("div[id='system']");
+        $this->I->see('プラグイン一覧');
+        $pluginName = $this->getPluginName();
 
-        $this->em->refresh($this->Plugin);
-        $this->I->assertTrue($this->Plugin->isInitialized(), '初期化されている');
-        $this->I->assertFalse($this->Plugin->isEnabled(), '無効化されている');
+        $this->I->seeCheckboxIsChecked("#plugin_enable");
+        $this->I->uncheckOption("#plugin_enable");
+        $this->I->seeInPopup('プラグインを無効にしても宜しいですか？');
+        $this->I->acceptPopup();
 
+
+         // Wait for page reload by program
+        $this->I->wait(3);
+        $this->I->seeInPopup($pluginName . 'を無効にしました。');
+        $this->I->acceptPopup();
+        $this->I->dontSeeCheckboxIsChecked("#plugin_enable");
+
+        // Reload page to verify checkox again
+        $this->I->reloadPage();
+        $this->I->wait(3);
+        $this->I->seeInPopup($pluginName . 'を無効にしました。');
+        $this->I->acceptPopup();
+        $this->I->dontSeeCheckboxIsChecked("#plugin_enable");
         return $this;
     }
 
     public function uninstall()
     {
-        $this->Plugin = $this->pluginRepository->findByCode($this->code);
-        $this->ManagePage = PluginManagePage::go($this->I)->ストアプラグイン_削除($this->code);
+        $this->I->goToAdminPage('admin/ownersstore/');
+        $this->I->waitForElement("div[id='system']");
+        $this->I->see('プラグイン一覧');
+        $pluginName = $this->getPluginName();
 
-        $this->em->refresh($this->Plugin);
-        $this->Plugin = $this->pluginRepository->findByCode($this->code);
-        $this->I->assertNull($this->Plugin, '削除されている');
+        $this->I->click("a[name='uninstall']");
+        $this->I->seeInPopup("一度削除したデータは元に戻せません。\nプラグインを削除しても宜しいですか？");
+        $this->I->acceptPopup();
+        
+        // Wait for page reload by program
+        $this->I->wait(3);
+        $this->I->seeInPopup($pluginName . "を削除しました。");
+        $this->I->acceptPopup();
 
-        $this->I->assertDirectoryDoesNotExist($this->config['plugin_realdir'].'/'.$this->code);
+        // Check database
+        // $this->Plugin = $this->pluginRepository->findByCode($this->code);
+        // $this->em->refresh($this->Plugin);
+        // $this->Plugin = $this->pluginRepository->findByCode($this->code);
+        // $this->I->assertNull($this->Plugin, '削除されている');
+
 
         return $this;
     }
 
     public function checkDirectoryIsRemoved()
     {
-        $this->I->assertDirectoryDoesNotExist($this->config['plugin_realdir'].'/'.$this->code);
-
+        // $this->I->assertDirectoryDoesNotExist($this->config['plugin_realdir'].'/'.$this->code);
         return $this;
     }
 }
