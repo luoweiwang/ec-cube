@@ -1,4 +1,4 @@
-name: E2E test(Throttoling) for EC-CUBE
+name: E2E test(Throttoling) DB Mysql for EC-CUBE 
 on:
   push:
     branches:
@@ -20,35 +20,21 @@ jobs:
       fail-fast: false
       matrix:
         php: [ '8.1', '8.2', '8.3' ]
-        db: [ pgsql12, pgsql16 ]
+        db: [ mysql ]
         method: [ フロント画面ログイン_IP, フロント画面ログイン_会員, 管理画面ログイン_IP, 管理画面ログイン_会員, 会員登録, 問い合わせ, パスワード再発行, 注文確認_非会員購入, 注文確認_会員購入, 注文完了_非会員購入, 注文完了_会員購入, 会員情報編集, 配送先情報_追加, 配送先情報_編集, 配送先情報_削除, order_お届け先追加, order_お届け先変更, 新規会員登録_入力, 管理画面二段階認証 ]
         include:
-          - db: pgsql12
-            database_url: postgres://postgres:password@127.0.0.1:5432/eccube_db
-            database_server_version: 12
-          - db: pgsql16
-            database_url: postgres://postgres:password@127.0.0.1:5433/eccube_db
-            database_server_version: 16
+          - db: mysql
+            database_url: mysql://root:password@127.0.0.1:3306/eccube_db
+            database_server_version: 8
+            database_charset: utf8mb4
     services:
-      postgres12:
-        image: postgres:12
+      mysql:
+        image: mysql:8
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: password
+          MYSQL_ROOT_PASSWORD: password
         ports:
-          - 5432:5432
-        # needed because the postgres container does not provide a healthcheck
-        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
-      postgres16:
-        image: postgres:16
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: password
-        ports:
-          - 5433:5432
-        # needed because the postgres container does not provide a healthcheck
-        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
-
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
       mailcatcher:
         image: schickling/mailcatcher
         ports:
