@@ -1,4 +1,4 @@
-name: Plugin test for EC-CUBE DB Pgsql 12
+name: Plugin test for EC-CUBE DB Pgsql 16
 on:
   push:
     branches:
@@ -34,11 +34,11 @@ jobs:
         include:
           - db: pgsql
             database_url: postgres://postgres:password@127.0.0.1:5432/eccube_db
-            database_server_version: 12
+            database_server_version: 16
             database_charset: utf8
     services:
       postgres:
-        image: postgres:12
+        image: postgres:16
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: password
@@ -160,11 +160,11 @@ jobs:
         include:
           - db: pgsql
             database_url: postgres://postgres:password@127.0.0.1:5432/eccube_db
-            database_server_version: 12
+            database_server_version: 16
             database_charset: utf8
     services:
       postgres:
-        image: postgres:12
+        image: postgres:16
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: password
@@ -297,12 +297,12 @@ jobs:
         include:
           - db: pgsql
             database_url: postgres://postgres:password@127.0.0.1:5432/eccube_db
-            database_server_version: 12
+            database_server_version: 16
             database_charset: utf8
 
     services:
       postgres:
-        image: postgres:12
+        image: postgres:16
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: password
@@ -435,12 +435,12 @@ jobs:
         include:
           - db: pgsql
             database_url: postgres://postgres:password@127.0.0.1:5432/eccube_db
-            database_server_version: 12
+            database_server_version: 16
             database_charset: utf8
 
     services:
       postgres:
-        image: postgres:12
+        image: postgres:16
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: password

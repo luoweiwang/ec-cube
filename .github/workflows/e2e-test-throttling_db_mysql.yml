@@ -1,4 +1,4 @@
-name: E2E test(Throttoling) for EC-CUBE
+name: E2E test(Throttoling) DB Mysql for EC-CUBE 
 on:
   push:
     branches:
